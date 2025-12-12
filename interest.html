@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compound Interest Calculator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            text-align: center;
+            font-size: 28px;
+        }
+
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+                align-items: flex-start;
+            }
+
+            .container {
+                padding: 25px 20px;
+                border-radius: 15px;
+                margin-top: 10px;
+            }
+
+            h1 {
+                font-size: 24px;
+                margin-bottom: 25px;
+            }
+
+            .input-group {
+                margin-bottom: 18px;
+            }
+
+            label {
+                font-size: 13px;
+            }
+
+            input {
+                padding: 14px 12px;
+                font-size: 16px;
+            }
+
+            button {
+                padding: 16px;
+                font-size: 17px;
+            }
+
+            .result {
+                padding: 20px;
+                margin-top: 25px;
+            }
+
+            .result-value {
+                font-size: 16px;
+            }
+
+            .result-value.highlight {
+                font-size: 20px;
+            }
+
+            .radio-group {
+                gap: 15px;
+            }
+        }
+
+        @media (max-width: 400px) {
+            .container {
+                padding: 20px 15px;
+            }
+
+            h1 {
+                font-size: 22px;
+            }
+
+            .radio-group {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .result-item {
+                flex-direction: column;
+                gap: 5px;
+                align-items: flex-start;
+            }
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            color: #555;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .result {
+            margin-top: 30px;
+            padding: 25px;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border-radius: 12px;
+            display: none;
+        }
+
+        .result.show {
+            display: block;
+            animation: slideIn 0.5s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .result-item:last-child {
+            border-bottom: none;
+        }
+
+        .result-label {
+            color: #555;
+            font-weight: 600;
+        }
+
+        .result-value {
+            color: #333;
+            font-weight: 700;
+            font-size: 18px;
+        }
+
+        .result-value.highlight {
+            color: #667eea;
+            font-size: 24px;
+        }
+
+        .error {
+            color: #e74c3c;
+            font-size: 14px;
+            margin-top: 5px;
+            display: none;
+        }
+
+        .error.show {
+            display: block;
+        }
+
+        .radio-group {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 10px;
+        }
+
+        .radio-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+
+        .radio-option input[type="radio"] {
+            width: auto;
+            cursor: pointer;
+        }
+
+        .radio-option label {
+            margin: 0;
+            cursor: pointer;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>💰 Compound Interest Calculator</h1>
+        
+        <div class="input-group">
+            <label for="principal">Initial Principal ($)</label>
+            <input type="number" id="principal" placeholder="e.g., 10000" step="0.01" min="0">
+            <span class="error" id="principalError">Please enter a valid amount</span>
+        </div>
+
+        <div class="input-group">
+            <label>Interest Rate Type</label>
+            <div class="radio-group">
+                <div class="radio-option">
+                    <input type="radio" id="annualRate" name="rateType" value="annual" checked>
+                    <label for="annualRate">Annual (%)</label>
+                </div>
+                <div class="radio-option">
+                    <input type="radio" id="monthlyRate" name="rateType" value="monthly">
+                    <label for="monthlyRate">Monthly (%)</label>
+                </div>
+            </div>
+        </div>
+
+        <div class="input-group">
+            <label for="rate"><span id="rateLabel">Annual</span> Interest Rate (%)</label>
+            <input type="number" id="rate" placeholder="e.g., 5" step="0.01" min="0">
+            <span class="error" id="rateError">Please enter a valid rate</span>
+        </div>
+
+        <div class="input-group">
+            <label for="time">Time Period (years)</label>
+            <input type="number" id="time" placeholder="e.g., 10" step="0.1" min="0">
+            <span class="error" id="timeError">Please enter a valid time period</span>
+        </div>
+
+        <div class="input-group">
+            <label for="compound">Compound Frequency (per year)</label>
+            <input type="number" id="compound" placeholder="e.g., 12 (monthly)" step="1" min="1" value="12">
+            <span class="error" id="compoundError">Please enter a valid frequency</span>
+        </div>
+
+        <button id="calculateBtn">Calculate</button>
+
+        <div class="result" id="result">
+            <div class="result-item">
+                <span class="result-label">Initial Principal:</span>
+                <span class="result-value" id="displayPrincipal">$0.00</span>
+            </div>
+            <div class="result-item">
+                <span class="result-label">Total Interest Earned:</span>
+                <span class="result-value" id="displayInterest">$0.00</span>
+            </div>
+            <div class="result-item">
+                <span class="result-label">Final Amount:</span>
+                <span class="result-value highlight" id="displayTotal">$0.00</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Update label when rate type changes
+        document.querySelectorAll('input[name="rateType"]').forEach(radio => {
+            radio.addEventListener('change', function() {
+                const label = document.getElementById('rateLabel');
+                const input = document.getElementById('rate');
+                if (this.value === 'annual') {
+                    label.textContent = 'Annual';
+                    input.placeholder = 'e.g., 5';
+                } else {
+                    label.textContent = 'Monthly';
+                    input.placeholder = 'e.g., 0.4';
+                }
+            });
+        });
+
+        // Add click event listener to button
+        document.getElementById('calculateBtn').addEventListener('click', calculateInterest);
+
+        function calculateInterest() {
+            // Get input values
+            const principal = parseFloat(document.getElementById('principal').value);
+            let rate = parseFloat(document.getElementById('rate').value);
+            const time = parseFloat(document.getElementById('time').value);
+            const compound = parseFloat(document.getElementById('compound').value);
+            const rateType = document.querySelector('input[name="rateType"]:checked').value;
+
+            // Reset errors
+            document.querySelectorAll('.error').forEach(error => error.classList.remove('show'));
+
+            // Validate inputs
+            let isValid = true;
+
+            if (isNaN(principal) || principal <= 0) {
+                document.getElementById('principalError').classList.add('show');
+                isValid = false;
+            }
+
+            if (isNaN(rate) || rate < 0) {
+                document.getElementById('rateError').classList.add('show');
+                isValid = false;
+            }
+
+            if (isNaN(time) || time <= 0) {
+                document.getElementById('timeError').classList.add('show');
+                isValid = false;
+            }
+
+            if (isNaN(compound) || compound < 1) {
+                document.getElementById('compoundError').classList.add('show');
+                isValid = false;
+            }
+
+            if (!isValid) {
+                document.getElementById('result').classList.remove('show');
+                return;
+            }
+
+            // Calculate compound interest
+            // Formula: A = P(1 + r/n)^(nt)
+            // A = final amount
+            // P = principal
+            // r = annual interest rate (decimal)
+            // n = compound frequency
+            // t = time in years
+
+            // Convert monthly rate to annual if needed
+            if (rateType === 'monthly') {
+                rate = rate * 12; // Convert monthly rate to annual
+            }
+
+            const rateDecimal = rate / 100;
+            const finalAmount = principal * Math.pow(1 + (rateDecimal / compound), compound * time);
+            const interestEarned = finalAmount - principal;
+
+            // Display results
+            document.getElementById('displayPrincipal').textContent = '$' + principal.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+            document.getElementById('displayInterest').textContent = '$' + interestEarned.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+            document.getElementById('displayTotal').textContent = '$' + finalAmount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
+            // Show result
+            document.getElementById('result').classList.add('show');
+        }
+
+        // Allow Enter key to trigger calculation
+        document.querySelectorAll('input').forEach(input => {
+            input.addEventListener('keypress', function(event) {
+                if (event.key === 'Enter') {
+                    calculateInterest();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
