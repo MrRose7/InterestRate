@@ -1679,7 +1679,47 @@
                     }
                 });
                 
-                canvas.addEventListener('touchend', () => {
+                canvas.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    const rect = canvas.getBoundingClientRect();
+                    
+                    // Get the last touch position before it ended
+                    if (e.changedTouches && e.changedTouches.length > 0) {
+                        const touch = e.changedTouches[0];
+                        const touchX = touch.clientX - rect.left;
+                        const touchY = touch.clientY - rect.top;
+                        
+                        const point = findNearestPoint(touchX, touchY);
+                        
+                        if (point) {
+                            // Add point to selection (same logic as click)
+                            if (selectedPoints.length === 0) {
+                                selectedPoints.push(point);
+                                // Redraw to show first point
+                                const frequency = document.getElementById('dataFrequency').value;
+                                const filteredData = filterDataByFrequency(fullMonthlyData, frequency);
+                                drawChart(filteredData);
+                            } else if (selectedPoints.length === 1) {
+                                // Add second point
+                                selectedPoints.push(point);
+                                showGrowthComparison();
+                                // Redraw to show both points
+                                const frequency = document.getElementById('dataFrequency').value;
+                                const filteredData = filterDataByFrequency(fullMonthlyData, frequency);
+                                drawChart(filteredData);
+                            } else {
+                                // Reset and start new selection
+                                selectedPoints = [point];
+                                growthBox.classList.remove('show');
+                                // Redraw with new first point
+                                const frequency = document.getElementById('dataFrequency').value;
+                                const filteredData = filterDataByFrequency(fullMonthlyData, frequency);
+                                drawChart(filteredData);
+                            }
+                        }
+                    }
+                    
+                    // Hide tooltip after a delay
                     setTimeout(() => tooltip.classList.remove('show'), 2000);
                 });
             }
