@@ -173,6 +173,20 @@
                 height: 250px;
                 padding: 15px;
             }
+
+            .chart-container canvas {
+                touch-action: none;
+            }
+
+            .frequency-selector {
+                flex-direction: column;
+                gap: 5px;
+            }
+
+            .frequency-selector label {
+                font-size: 12px;
+                margin-bottom: 0;
+            }
         }
 
         @media (max-width: 400px) {
@@ -342,6 +356,104 @@
 
         .chart-tooltip.show {
             display: block;
+        }
+
+        .frequency-selector {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: white;
+            border-radius: 8px;
+        }
+
+        .frequency-selector label {
+            font-weight: 600;
+            color: #555;
+            margin: 0;
+        }
+
+        .frequency-selector select {
+            padding: 8px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+        }
+
+        .growth-comparison {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255, 255, 255, 0.95);
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            padding: 15px;
+            display: none;
+            z-index: 50;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            min-width: 200px;
+        }
+
+        .growth-comparison.show {
+            display: block;
+        }
+
+        .growth-comparison h4 {
+            margin: 0 0 10px 0;
+            color: #667eea;
+            font-size: 14px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 5px;
+        }
+
+        .growth-comparison .point-info {
+            font-size: 12px;
+            margin: 5px 0;
+            color: #333;
+        }
+
+        .growth-comparison .point-info strong {
+            color: #667eea;
+        }
+
+        .growth-comparison .growth-stats {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .growth-comparison .stat {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+            font-size: 12px;
+        }
+
+        .growth-comparison .stat .label {
+            color: #666;
+        }
+
+        .growth-comparison .stat .value {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .growth-comparison .stat .value.positive {
+            color: #10b981;
+        }
+
+        .growth-comparison button {
+            width: 100%;
+            padding: 6px;
+            margin-top: 10px;
+            font-size: 12px;
+            background: #dc2626;
+        }
+
+        .growth-comparison button:hover {
+            background: #b91c1c;
+            font-size: 14px;
+            cursor: pointer;
         }
 
         .breakdown {
@@ -550,6 +662,16 @@
             <div class="result-item">
                 <span class="result-label">Final Amount:</span>
                 <span class="result-value highlight" id="displayTotal">$0.00</span>
+            </div>
+
+            <div class="frequency-selector">
+                <label for="dataFrequency">Chart Data Points:</label>
+                <select id="dataFrequency" onchange="updateChartFrequency()">
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly" selected>Monthly</option>
+                    <option value="yearly">Yearly</option>
+                </select>
             </div>
 
             <div class="chart-container">
@@ -792,7 +914,10 @@
 
             // Generate chart after DOM updates (use setTimeout to ensure canvas is visible)
             setTimeout(() => {
-                drawChart(result.monthlyData);
+                fullMonthlyData = result.monthlyData;
+                const frequency = document.getElementById('dataFrequency').value;
+                const filteredData = filterDataByFrequency(result.monthlyData, frequency);
+                drawChart(filteredData);
             }, 10);
 
             // Handle comparison mode
@@ -957,6 +1082,115 @@
 
         let chartData = [];
         let chartDimensions = {};
+        let fullMonthlyData = [];
+        let selectedPoints = [];
+        let chartListenersAttached = false;
+
+        function updateChartFrequency() {
+            if (fullMonthlyData.length > 0) {
+                const frequency = document.getElementById('dataFrequency').value;
+                const filteredData = filterDataByFrequency(fullMonthlyData, frequency);
+                setTimeout(() => {
+                    drawChart(filteredData);
+                }, 10);
+            }
+        }
+        
+        function clearSelection() {
+            selectedPoints = [];
+            const growthBox = document.querySelector('.growth-comparison');
+            if (growthBox) {
+                growthBox.classList.remove('show');
+            }
+            // Redraw chart without selected points
+            if (fullMonthlyData.length > 0) {
+                const frequency = document.getElementById('dataFrequency').value;
+                const filteredData = filterDataByFrequency(fullMonthlyData, frequency);
+                drawChart(filteredData);
+            }
+        }
+
+        function filterDataByFrequency(data, frequency) {
+            if (frequency === 'monthly') return data;
+            
+            const filtered = [];
+            let interval;
+            
+            switch(frequency) {
+                case 'daily':
+                    // For daily, calculate daily points (approximately)
+                    const totalMonths = data.length - 1;
+                    const totalDays = totalMonths * 30;
+                    
+                    // Parse the start date from the first data point
+                    // data[0].date format is like "Jan 2024"
+                    const [startMonthStr, startYearStr] = data[0].date.split(' ');
+                    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                    const startMonthNum = monthNames.indexOf(startMonthStr);
+                    const startYearNum = parseInt(startYearStr);
+                    const startDate = new Date(startYearNum, startMonthNum, 1);
+                    
+                    for (let day = 0; day <= totalDays; day++) {
+                        const monthIndex = day / 30;
+                        const floorMonth = Math.floor(monthIndex);
+                        const ceilMonth = Math.min(Math.ceil(monthIndex), data.length - 1);
+                        const fraction = monthIndex - floorMonth;
+                        
+                        // Interpolate between months
+                        const balance = data[floorMonth].balance + 
+                            (data[ceilMonth].balance - data[floorMonth].balance) * fraction;
+                        
+                        // Calculate the actual date
+                        const newDate = new Date(startDate);
+                        newDate.setDate(startDate.getDate() + day);
+                        
+                        filtered.push({
+                            month: day / 30,
+                            date: newDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
+                            balance: balance,
+                            contribution: 0,
+                            interest: 0
+                        });
+                    }
+                    break;
+                    
+                case 'weekly':
+                    // Sample approximately every week (7 days = ~0.23 months)
+                    const weekInterval = 7 / 30; // Convert days to months
+                    for (let i = 0; i < data.length; i += weekInterval) {
+                        const index = Math.floor(i);
+                        if (index < data.length) {
+                            const point = {...data[index]};
+                            point.month = i; // Preserve fractional month for correct scaling
+                            filtered.push(point);
+                        }
+                    }
+                    // Always include the last point
+                    if (filtered[filtered.length - 1] !== data[data.length - 1]) {
+                        const lastPoint = {...data[data.length - 1]};
+                        lastPoint.month = data.length - 1;
+                        filtered.push(lastPoint);
+                    }
+                    break;
+                    
+                case 'yearly':
+                    // Sample every 12 months
+                    for (let i = 0; i < data.length; i += 12) {
+                        const point = {...data[i]};
+                        point.month = i;
+                        filtered.push(point);
+                    }
+                    // Always include the last point
+                    if (filtered[filtered.length - 1].month !== data[data.length - 1].month) {
+                        const lastPoint = {...data[data.length - 1]};
+                        lastPoint.month = data.length - 1;
+                        filtered.push(lastPoint);
+                    }
+                    break;
+            }
+            
+            return filtered.length > 0 ? filtered : data;
+        }
 
         function drawChart(data) {
             const canvas = document.getElementById('growthChart');
@@ -980,9 +1214,9 @@
             // Clear canvas
             ctx.clearRect(0, 0, width, height);
             
-            // Find max value
+            // Find max value - use the actual max month value from data
             const maxBalance = Math.max(...data.map(d => d.balance));
-            const maxMonth = data.length - 1;
+            const maxMonth = Math.max(...data.map(d => d.month));
             
             // Draw axes
             ctx.strokeStyle = '#333';
@@ -1036,14 +1270,47 @@
             ctx.fill();
             
             // Draw data points (invisible but clickable)
-            data.forEach((point) => {
+            data.forEach((point, index) => {
                 const x = leftPadding + (chartWidth / maxMonth) * point.month;
                 const y = height - padding - (chartHeight * (point.balance / maxBalance));
                 
                 ctx.beginPath();
-                ctx.arc(x, y, 5, 0, 2 * Math.PI);
+                ctx.arc(x, y, 4, 0, 2 * Math.PI);
                 ctx.fillStyle = '#667eea';
                 ctx.fill();
+            });
+            
+            // Draw selected points with larger circles and labels
+            selectedPoints.forEach((selectedPoint, idx) => {
+                // Find the closest point in the current filtered data
+                const tolerance = 0.1; // month tolerance for matching
+                const point = data.find(p => 
+                    Math.abs(p.month - selectedPoint.month) < tolerance && 
+                    Math.abs(p.balance - selectedPoint.balance) < 1
+                );
+                if (point) {
+                    const x = leftPadding + (chartWidth / maxMonth) * point.month;
+                    const y = height - padding - (chartHeight * (point.balance / maxBalance));
+                    
+                    // Draw outer ring
+                    ctx.beginPath();
+                    ctx.arc(x, y, 8, 0, 2 * Math.PI);
+                    ctx.strokeStyle = idx === 0 ? '#10b981' : '#f59e0b';
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                    
+                    // Draw inner circle
+                    ctx.beginPath();
+                    ctx.arc(x, y, 5, 0, 2 * Math.PI);
+                    ctx.fillStyle = idx === 0 ? '#10b981' : '#f59e0b';
+                    ctx.fill();
+                    
+                    // Draw label
+                    ctx.font = 'bold 12px Arial';
+                    ctx.fillStyle = idx === 0 ? '#10b981' : '#f59e0b';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(idx === 0 ? 'Start' : 'End', x, y - 15);
+                }
             });
             
             // Draw labels
@@ -1068,16 +1335,32 @@
             ctx.fillText('Total Balance ($)', 0, 0);
             ctx.restore();
             
-            // X-axis labels (show first, middle, last)
+            // X-axis labels (show first, middle, last) - always show as month/year for readability
             ctx.textAlign = 'center';
             ctx.font = '12px Arial';
             ctx.fillStyle = '#666';
-            ctx.fillText(data[0].date, leftPadding, height - padding + 20);
+            
+            // Format dates to show only month and year
+            const formatDateForAxis = (dateStr) => {
+                // If already in "Mon YYYY" format, return as is
+                if (dateStr.match(/^[A-Za-z]{3} \d{4}$/)) {
+                    return dateStr;
+                }
+                // If in "Mon DD, YYYY" format, extract month and year
+                const parts = dateStr.split(',');
+                if (parts.length === 2) {
+                    const monthDay = parts[0].trim().split(' ');
+                    return monthDay[0] + ' ' + parts[1].trim();
+                }
+                return dateStr;
+            };
+            
+            ctx.fillText(formatDateForAxis(data[0].date), leftPadding, height - padding + 20);
             if (data.length > 2) {
                 const midIndex = Math.floor(data.length / 2);
-                ctx.fillText(data[midIndex].date, leftPadding + chartWidth / 2, height - padding + 20);
+                ctx.fillText(formatDateForAxis(data[midIndex].date), leftPadding + chartWidth / 2, height - padding + 20);
             }
-            ctx.fillText(data[data.length - 1].date, leftPadding + chartWidth, height - padding + 20);
+            ctx.fillText(formatDateForAxis(data[data.length - 1].date), leftPadding + chartWidth, height - padding + 20);
             
             // Setup interaction
             setupChartInteraction(canvas, data, maxBalance, maxMonth);
@@ -1211,13 +1494,21 @@
                 container.appendChild(tooltip);
             }
             
+            let growthBox = container.querySelector('.growth-comparison');
+            if (!growthBox) {
+                growthBox = document.createElement('div');
+                growthBox.className = 'growth-comparison';
+                container.appendChild(growthBox);
+            }
+            
             const { width, height, padding, leftPadding, chartWidth, chartHeight } = chartDimensions;
             
             function findNearestPoint(mouseX, mouseY) {
                 let nearestPoint = null;
                 let minDistance = Infinity;
                 
-                data.forEach((point) => {
+                // Use chartData which is globally updated
+                chartData.forEach((point) => {
                     const x = leftPadding + (chartWidth / maxMonth) * point.month;
                     const y = height - padding - (chartHeight * (point.balance / maxBalance));
                     const distance = Math.sqrt(Math.pow(mouseX - x, 2) + Math.pow(mouseY - y, 2));
@@ -1256,38 +1547,142 @@
                 tooltip.classList.add('show');
             }
             
-            canvas.addEventListener('mousemove', (e) => {
-                const rect = canvas.getBoundingClientRect();
-                const mouseX = e.clientX - rect.left;
-                const mouseY = e.clientY - rect.top;
+            function showGrowthComparison() {
+                if (selectedPoints.length !== 2) return;
                 
-                const point = findNearestPoint(mouseX, mouseY);
+                const point1 = selectedPoints[0];
+                const point2 = selectedPoints[1];
                 
-                if (point) {
-                    canvas.style.cursor = 'pointer';
-                    showTooltip(point, mouseX, mouseY);
-                } else {
-                    canvas.style.cursor = 'crosshair';
+                // Ensure point1 is earlier than point2
+                const [startPoint, endPoint] = point1.month <= point2.month ? 
+                    [point1, point2] : [point2, point1];
+                
+                const balanceGrowth = endPoint.balance - startPoint.balance;
+                const percentGrowth = ((endPoint.balance / startPoint.balance - 1) * 100);
+                const timeDiff = endPoint.month - startPoint.month;
+                const monthsDiff = timeDiff;
+                const yearsDiff = (timeDiff / 12).toFixed(2);
+                
+                growthBox.innerHTML = `
+                    <h4>Growth Comparison</h4>
+                    <div class="point-info"><strong>Start:</strong> ${startPoint.date}</div>
+                    <div class="point-info">$${startPoint.balance.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}</div>
+                    <div class="point-info" style="margin-top: 8px;"><strong>End:</strong> ${endPoint.date}</div>
+                    <div class="point-info">$${endPoint.balance.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}</div>
+                    <div class="growth-stats">
+                        <div class="stat">
+                            <span class="label">Time Period:</span>
+                            <span class="value">${yearsDiff} years</span>
+                        </div>
+                        <div class="stat">
+                            <span class="label">Balance Growth:</span>
+                            <span class="value positive">$${balanceGrowth.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}</span>
+                        </div>
+                        <div class="stat">
+                            <span class="label">Percent Growth:</span>
+                            <span class="value positive">${percentGrowth.toFixed(2)}%</span>
+                        </div>
+                    </div>
+                    <button onclick="clearSelection()">Clear Selection</button>
+                `;
+                
+                growthBox.classList.add('show');
+            }
+            
+            // Only attach listeners once
+            if (!chartListenersAttached) {
+                chartListenersAttached = true;
+                
+                canvas.addEventListener('mousemove', (e) => {
+                    const rect = canvas.getBoundingClientRect();
+                    const mouseX = e.clientX - rect.left;
+                    const mouseY = e.clientY - rect.top;
+                    
+                    const point = findNearestPoint(mouseX, mouseY);
+                    
+                    if (point) {
+                        canvas.style.cursor = 'pointer';
+                        showTooltip(point, mouseX, mouseY);
+                    } else {
+                        canvas.style.cursor = 'crosshair';
+                        tooltip.classList.remove('show');
+                    }
+                });
+                
+                canvas.addEventListener('mouseleave', () => {
                     tooltip.classList.remove('show');
-                }
-            });
-            
-            canvas.addEventListener('mouseleave', () => {
-                tooltip.classList.remove('show');
-            });
-            
-            canvas.addEventListener('click', (e) => {
-                const rect = canvas.getBoundingClientRect();
-                const mouseX = e.clientX - rect.left;
-                const mouseY = e.clientY - rect.top;
+                });
                 
-                const point = findNearestPoint(mouseX, mouseY);
+                canvas.addEventListener('click', (e) => {
+                    const rect = canvas.getBoundingClientRect();
+                    const mouseX = e.clientX - rect.left;
+                    const mouseY = e.clientY - rect.top;
+                    
+                    const point = findNearestPoint(mouseX, mouseY);
+                    
+                    if (point) {
+                        // Add point to selection
+                        if (selectedPoints.length === 0) {
+                            selectedPoints.push(point);
+                            // Redraw to show first point
+                            const frequency = document.getElementById('dataFrequency').value;
+                            const filteredData = filterDataByFrequency(fullMonthlyData, frequency);
+                            drawChart(filteredData);
+                        } else if (selectedPoints.length === 1) {
+                            // Add second point
+                            selectedPoints.push(point);
+                            showGrowthComparison();
+                            // Redraw to show both points
+                            const frequency = document.getElementById('dataFrequency').value;
+                            const filteredData = filterDataByFrequency(fullMonthlyData, frequency);
+                            drawChart(filteredData);
+                        } else {
+                            // Reset and start new selection
+                            selectedPoints = [point];
+                            growthBox.classList.remove('show');
+                            // Redraw with new first point
+                            const frequency = document.getElementById('dataFrequency').value;
+                            const filteredData = filterDataByFrequency(fullMonthlyData, frequency);
+                            drawChart(filteredData);
+                        }
+                    }
+                });
                 
-                if (point) {
-                    // Keep tooltip visible on click
-                    showTooltip(point, mouseX, mouseY);
-                }
-            });
+                // Touch support for mobile
+                canvas.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    const rect = canvas.getBoundingClientRect();
+                    const touch = e.touches[0];
+                    const touchX = touch.clientX - rect.left;
+                    const touchY = touch.clientY - rect.top;
+                    
+                    const point = findNearestPoint(touchX, touchY);
+                    
+                    if (point) {
+                        showTooltip(point, touchX, touchY);
+                    }
+                });
+                
+                canvas.addEventListener('touchmove', (e) => {
+                    e.preventDefault();
+                    const rect = canvas.getBoundingClientRect();
+                    const touch = e.touches[0];
+                    const touchX = touch.clientX - rect.left;
+                    const touchY = touch.clientY - rect.top;
+                    
+                    const point = findNearestPoint(touchX, touchY);
+                    
+                    if (point) {
+                        showTooltip(point, touchX, touchY);
+                    } else {
+                        tooltip.classList.remove('show');
+                    }
+                });
+                
+                canvas.addEventListener('touchend', () => {
+                    setTimeout(() => tooltip.classList.remove('show'), 2000);
+                });
+            }
         }
 
         function updateBreakdownTable(data) {
