@@ -889,15 +889,10 @@
                 return;
             }
 
-            // Convert monthly rate to annual if needed
-            if (rateType === 'monthly') {
-                rate = rate * 12;
-            }
-
             const rateDecimal = rate / 100;
 
             // Calculate with contributions
-            const result = calculateWithContributions(principal, rateDecimal, time, compound, contribution, contributionFreq, startDate);
+            const result = calculateWithContributions(principal, rateDecimal, time, compound, contribution, contributionFreq, startDate, rateType);
 
             // Display results
             document.getElementById('displayPrincipal').textContent = '$' + principal.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
@@ -1024,7 +1019,7 @@
             }
         }
 
-        function calculateWithContributions(principal, annualRate, years, compoundFreq, contribution, contributionFreq, startDateStr) {
+        function calculateWithContributions(principal, rate, years, compoundFreq, contribution, contributionFreq, startDateStr, rateType) {
             const totalMonths = Math.ceil(years * 12);
             const monthlyData = [];
             let balance = principal;
@@ -1032,6 +1027,16 @@
             
             // Parse start date
             const [startYear, startMonth] = startDateStr.split('-').map(Number);
+            
+            // Determine the base rate to use
+            let baseRate;
+            if (rateType === 'monthly') {
+                // Rate is already monthly, so use it directly
+                baseRate = rate;
+            } else {
+                // Rate is annual, convert to the appropriate period rate
+                baseRate = rate;
+            }
             
             for (let month = 0; month <= totalMonths; month++) {
                 const date = new Date(startYear, startMonth - 1 + month, 1);
@@ -1041,12 +1046,56 @@
                 let monthlyInterest = 0;
                 
                 if (month > 0) {
-                    // Calculate interest on previous balance first
-                    const periodsInMonth = compoundFreq / 12;
-                    const periodRate = annualRate / compoundFreq;
-                    const balanceWithInterest = balance * Math.pow(1 + periodRate, periodsInMonth);
-                    monthlyInterest = balanceWithInterest - balance;
-                    balance = balanceWithInterest;
+                    // Calculate interest based on rate type and compound frequency
+                    if (rateType === 'monthly') {
+                        // For monthly rate: apply it monthly regardless of compound frequency
+                        // but compound within the month based on compoundFreq
+                        if (compoundFreq === 365) {
+                            // Daily compounding with monthly rate
+                            const dailyRate = baseRate / 30; // Approximate days in month
+                            const balanceWithInterest = balance * Math.pow(1 + dailyRate, 30);
+                            monthlyInterest = balanceWithInterest - balance;
+                            balance = balanceWithInterest;
+                        } else {
+                            // Apply monthly rate once per month
+                            const balanceWithInterest = balance * (1 + baseRate);
+                            monthlyInterest = balanceWithInterest - balance;
+                            balance = balanceWithInterest;
+                        }
+                    } else {
+                        // Annual rate: apply based on compound frequency
+                        let applyInterest = false;
+                        const periodRate = baseRate / compoundFreq;
+                        
+                        if (compoundFreq === 12) {
+                            // Monthly compounding - apply every month
+                            applyInterest = true;
+                        } else if (compoundFreq === 4) {
+                            // Quarterly - apply every 3 months
+                            applyInterest = (month % 3 === 0);
+                        } else if (compoundFreq === 2) {
+                            // Semi-annually - apply every 6 months
+                            applyInterest = (month % 6 === 0);
+                        } else if (compoundFreq === 1) {
+                            // Annually - apply every 12 months
+                            applyInterest = (month % 12 === 0);
+                        } else if (compoundFreq === 365) {
+                            // Daily compounding with annual rate
+                            const dailyRate = baseRate / 365;
+                            const daysInMonth = 30; // Average approximation
+                            const balanceWithInterest = balance * Math.pow(1 + dailyRate, daysInMonth);
+                            monthlyInterest = balanceWithInterest - balance;
+                            balance = balanceWithInterest;
+                            applyInterest = false; // Already handled above
+                        }
+                        
+                        // Apply interest if it's a compounding period
+                        if (applyInterest) {
+                            const balanceWithInterest = balance * (1 + periodRate);
+                            monthlyInterest = balanceWithInterest - balance;
+                            balance = balanceWithInterest;
+                        }
+                    }
                     
                     // Add contribution based on frequency
                     if (contributionFreq > 0) {
