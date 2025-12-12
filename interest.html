@@ -88,6 +88,20 @@
             .radio-group {
                 gap: 15px;
             }
+
+            .breakdown {
+                max-height: 300px;
+            }
+
+            .breakdown-table th,
+            .breakdown-table td {
+                padding: 8px 4px;
+                font-size: 11px;
+            }
+
+            .breakdown h3 {
+                font-size: 14px;
+            }
         }
 
         @media (max-width: 400px) {
@@ -222,6 +236,56 @@
             display: block;
         }
 
+        .breakdown {
+            margin-top: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+        }
+
+        .breakdown h3 {
+            color: #333;
+            font-size: 16px;
+            margin-bottom: 15px;
+            padding: 15px 15px 0;
+            position: sticky;
+            top: 0;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            z-index: 1;
+        }
+
+        .breakdown-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .breakdown-table th {
+            background: #667eea;
+            color: white;
+            padding: 12px 8px;
+            text-align: left;
+            font-size: 13px;
+            position: sticky;
+            top: 46px;
+            z-index: 1;
+        }
+
+        .breakdown-table td {
+            padding: 10px 8px;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 13px;
+        }
+
+        .breakdown-table tr:hover {
+            background: #f9f9f9;
+        }
+
+        .breakdown-table tr:last-child td {
+            font-weight: bold;
+            background: #f5f7fa;
+        }
+
         .radio-group {
             display: flex;
             gap: 20px;
@@ -303,6 +367,21 @@
             <div class="result-item">
                 <span class="result-label">Final Amount:</span>
                 <span class="result-value highlight" id="displayTotal">$0.00</span>
+            </div>
+            
+            <div class="breakdown" id="breakdown">
+                <h3>📊 Monthly Growth Breakdown</h3>
+                <table class="breakdown-table" id="breakdownTable">
+                    <thead>
+                        <tr>
+                            <th>Month</th>
+                            <th>Balance</th>
+                            <th>Interest</th>
+                        </tr>
+                    </thead>
+                    <tbody id="breakdownBody">
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -387,8 +466,39 @@
             document.getElementById('displayInterest').textContent = '$' + interestEarned.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
             document.getElementById('displayTotal').textContent = '$' + finalAmount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 
+            // Generate monthly breakdown
+            generateMonthlyBreakdown(principal, rateDecimal, time, compound);
+
             // Show result
             document.getElementById('result').classList.add('show');
+        }
+
+        function generateMonthlyBreakdown(principal, annualRate, years, compoundFrequency) {
+            const tbody = document.getElementById('breakdownBody');
+            tbody.innerHTML = '';
+
+            const totalMonths = Math.ceil(years * 12);
+            const monthlyRate = annualRate / 12;
+            let currentBalance = principal;
+
+            // Generate row for each month
+            for (let month = 1; month <= totalMonths; month++) {
+                const previousBalance = currentBalance;
+                
+                // Calculate interest for this month based on compound frequency
+                const timeInYears = month / 12;
+                currentBalance = principal * Math.pow(1 + (annualRate / compoundFrequency), compoundFrequency * timeInYears);
+                
+                const monthlyInterest = currentBalance - previousBalance;
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${month}</td>
+                    <td>$${currentBalance.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}</td>
+                    <td>$${monthlyInterest.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}</td>
+                `;
+                tbody.appendChild(row);
+            }
         }
 
         // Allow Enter key to trigger calculation
